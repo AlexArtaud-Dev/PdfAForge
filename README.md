@@ -9,12 +9,33 @@ Built for enterprise environments requiring long-term archiving compliance (Fren
 ## Features
 
 - PDF to PDF/A-3B conversion via HTTP
-- Automatic annotation compliance fixing
-- Input validation (magic bytes, file size)
+- Pass-through for already PDF/A-3 compliant files (XMP metadata detection)
+- Automatic pre-conversion fixes:
+  - Annotation F flags (Print=1, Invisible/Hidden/NoView/ToggleNoView=0)
+  - Appearance dictionary cleanup (strip D and R keys)
+  - AA/A action entries stripped from annotations, pages and form fields
+  - Forbidden annotation types removed (3D, Screen, Movie, Sound, FileAttachment, Watermark)
+  - Image fixes: Alternates, OPI keys removed; Interpolate forced to false
+  - Form XObject fixes: OPI, PS, Subtype2 keys removed
+  - AFRelationship key added/fixed on file spec dictionaries
+  - Page AA (Additional Actions) stripped
+- Input validation (PDF magic bytes, file size limit)
 - Rotating daily log files with configurable retention
 - Enriched health check endpoint
-- Request correlation ID tracing
+- Request correlation ID tracing (X-Correlation-Id header)
 - Zero hardcoded values — fully driven by `Web.config`
+
+### Known limitations
+
+The following violations cannot be auto-fixed and will result in a conversion error:
+
+- Encrypted PDFs (password-protected)
+- PDFs using forbidden filters (LZWDecode)
+- PDFs with forbidden stream keys (FFilter, FDecodeParams)
+- DeviceCMYK color space without matching OutputIntent
+- Invalid rendering intent values (located in ExtGState or content streams)
+- Widget annotations with missing or invalid appearance dictionaries
+- Structurally corrupt PDFs (malformed numeric data, invalid PdfName/PdfString length)
 
 ---
 
@@ -36,17 +57,27 @@ Converts a PDF to PDF/A-3B.
 ```
 Content-Type: multipart/form-data
 Body: pdf_file (binary)
-Headers: X-Correlation-Id (optional)
+Headers: X-Correlation-Id (optional — generated if absent)
 ```
 
-**Response**
+**Response — success**
 ```
+HTTP 200
 Content-Type: application/pdf
 Headers:
   X-Correlation-Id
   X-Input-Size-Kb
   X-Output-Size-Kb
   X-Duration-Ms
+Body: PDF/A-3B binary
+```
+
+**Response — error**
+```
+HTTP 400  Missing or invalid pdf_file part
+HTTP 413  File exceeds MaxFileSizeMb
+HTTP 415  File is not a valid PDF (magic bytes check)
+HTTP 500  Conversion failed (message included in JSON body)
 ```
 
 ---
@@ -69,6 +100,8 @@ Returns service health status.
   "logRetentionDays": 30
 }
 ```
+
+`status` can be `ok` or `degraded` (if ICC profile or log path is unavailable).
 
 ---
 
@@ -94,21 +127,21 @@ PdfAForge/
 ├── App_Start/
 │   └── WebApiConfig.cs
 ├── Config/
-│   └── AppSettings.cs
+│   └── AppSettings.cs          — typed Web.config access + startup validation
 ├── Controllers/
-│   └── ConvertController.cs
+│   └── ConvertController.cs    — HTTP endpoints
 ├── Logging/
-│   └── ConversionLogger.cs
+│   └── ConversionLogger.cs     — rotating daily log + retention cleanup
 ├── Models/
 │   ├── ConversionResult.cs
 │   └── HealthStatus.cs
 ├── Resources/
-│   └── sRGB_CS_profile.icm
+│   └── sRGB_CS_profile.icm     — mandatory ICC color profile
 ├── Services/
-│   └── PdfConverterService.cs
+│   └── PdfConverterService.cs  — PDF/A-3B conversion engine
 ├── Validation/
-│   └── PdfValidator.cs
-├── Global.asax
+│   └── PdfValidator.cs         — magic bytes + file size validation
+├── Global.asax                 — startup validation + logging
 └── Web.config
 ```
 
@@ -117,7 +150,7 @@ PdfAForge/
 ## Getting Started
 
 1. Clone the repo
-2. Place `sRGB_CS_profile.icm` in `Resources/` and set **Copy to Output Directory = Copy always**
+2. Place `sRGB_CS_profile.icm` in `Resources/` → set **Copy to Output Directory = Copy always**
 3. Install NuGet packages:
 ```
 Install-Package itext -Version 9.x
