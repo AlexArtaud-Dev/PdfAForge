@@ -56,6 +56,20 @@ jobs:
       - name: Restore NuGet packages
         run: nuget restore PdfAForge.sln
 
+      - name: Prepare publish inputs
+        shell: pwsh
+        run: |
+          $rootGitIgnore = Join-Path "${{ github.workspace }}" ".gitignore"
+          $projectGitIgnore = Join-Path "${{ github.workspace }}" "PdfAForge\.gitignore"
+
+          if (-not (Test-Path $projectGitIgnore)) {
+            if (-not (Test-Path $rootGitIgnore)) {
+              throw "Missing root .gitignore required by PdfAForge.csproj publish content items."
+            }
+
+            Copy-Item -Path $rootGitIgnore -Destination $projectGitIgnore
+          }
+
       - name: Publish to file system
         shell: pwsh
         run: |
