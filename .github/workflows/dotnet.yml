@@ -60,7 +60,7 @@ jobs:
         shell: pwsh
         run: |
           $rootGitIgnore = Join-Path "${{ github.workspace }}" ".gitignore"
-          $projectGitIgnore = Join-Path "${{ github.workspace }}" "PdfAForge\.gitignore"
+          $projectGitIgnore = Join-Path (Join-Path "${{ github.workspace }}" "PdfAForge") ".gitignore"
 
           if (-not (Test-Path $projectGitIgnore)) {
             if (-not (Test-Path $rootGitIgnore)) {
