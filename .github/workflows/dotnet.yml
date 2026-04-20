@@ -78,8 +78,9 @@ jobs:
 
           [xml]$csproj = Get-Content -Path $projectFile
           $missingContentItems = @()
+          $contentItems = @($csproj.Project.ItemGroup | ForEach-Object { @($_.Content) })
 
-          foreach ($item in $csproj.Project.ItemGroup.Content) {
+          foreach ($item in $contentItems) {
             $include = $item.Include
             if ([string]::IsNullOrWhiteSpace($include)) {
               continue
