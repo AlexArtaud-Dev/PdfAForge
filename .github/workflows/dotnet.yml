@@ -46,6 +46,11 @@ jobs:
       - name: Build (Release)
         run: msbuild PdfAForge.sln /p:Configuration=Release /p:Platform="Any CPU" /m /nologo /v:minimal
 
+      - name: Find build output
+        shell: pwsh
+        run: |
+          Get-ChildItem -Path PdfAForge -Recurse -Directory | Select-Object FullName
+
       - name: Read version from Web.config
         id: version
         shell: pwsh
