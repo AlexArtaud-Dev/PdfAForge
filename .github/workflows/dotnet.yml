@@ -1,0 +1,39 @@
+name: .NET
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  build:
+    name: Build & Validate
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup MSBuild
+        uses: microsoft/setup-msbuild@v2
+
+      - name: Setup NuGet
+        uses: NuGet/setup-nuget@v2
+
+      - name: Restore NuGet packages
+        run: nuget restore PdfAForge.sln
+
+      - name: Build (Release)
+        run: msbuild PdfAForge.sln /p:Configuration=Release /p:Platform="Any CPU" /m /nologo /v:minimal
+
+      - name: Run tests
+        shell: pwsh
+        run: |
+          $dlls = Get-ChildItem -Recurse -Filter "*Tests*.dll" |
+            Where-Object { $_.FullName -match "\\bin\\Release\\" }
+          if ($dlls.Count -eq 0) {
+            Write-Host "No test assemblies found — skipping."
+            exit 0
+          }
+          vstest.console.exe $dlls

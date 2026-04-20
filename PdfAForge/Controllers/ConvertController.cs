@@ -43,6 +43,16 @@ namespace PdfAForge.Controllers
                     "Request must be multipart/form-data.", correlationId);
             }
 
+            // --- Content-Length guard (best-effort: header may be absent) ---
+            var contentLength = Request.Content.Headers.ContentLength;
+            if (contentLength.HasValue && contentLength.Value > AppSettings.Current.MaxFileSizeBytes)
+            {
+                ConversionLogger.Current.Warn(correlationId,
+                    $"Rejected: Content-Length {contentLength.Value / 1024}kb exceeds {AppSettings.Current.MaxFileSizeMb}MB limit");
+                return ErrorResponse(HttpStatusCode.RequestEntityTooLarge,
+                    $"Request exceeds the {AppSettings.Current.MaxFileSizeMb} MB limit.", correlationId);
+            }
+
             // --- Read multipart ---
             MultipartMemoryStreamProvider provider;
             try
@@ -156,6 +166,8 @@ namespace PdfAForge.Controllers
             }
             catch { }
 
+            var metrics = ConversionMetrics.Current;
+
             var status = new HealthStatus
             {
                 Status = "ok",
@@ -169,7 +181,13 @@ namespace PdfAForge.Controllers
                 LogRetentionDays = settings.LogRetentionDays,
                 MaxConcurrentConversions = settings.MaxConcurrentConversions,
                 QueueTimeoutSeconds = settings.QueueTimeoutSeconds,
-                ConversionSlotsAvailable = PdfConverterService.Current.SlotsAvailable
+                ConversionSlotsAvailable = PdfConverterService.Current.SlotsAvailable,
+                TotalRequests = metrics.TotalRequests,
+                TotalSuccesses = metrics.Successes,
+                TotalFailures = metrics.Failures,
+                TotalBusy = metrics.Busy,
+                AverageDurationMs = metrics.AverageDurationMs,
+                UptimeSince = metrics.UptimeSince
             };
 
             if (!status.IccProfileOk || !status.LogPathOk)
