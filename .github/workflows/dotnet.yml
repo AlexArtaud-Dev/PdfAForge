@@ -60,7 +60,7 @@ jobs:
         shell: pwsh
         run: |
           $out = "${{ github.workspace }}\publish"
-          msbuild PdfAForge\PdfAForge.csproj /p:Configuration=Release /p:Platform="Any CPU" `
+          msbuild PdfAForge\PdfAForge.csproj /p:Configuration=Release /p:Platform=AnyCPU `
             /p:WebPublishMethod=FileSystem /p:PublishUrl="$out" `
             /p:DeployOnBuild=true /p:DeleteExistingFiles=true `
             /nologo /v:minimal
