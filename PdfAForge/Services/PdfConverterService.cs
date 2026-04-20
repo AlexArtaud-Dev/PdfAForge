@@ -23,6 +23,7 @@ namespace PdfAForge.Services
         public static PdfConverterService Current => _instance;
 
         private readonly SemaphoreSlim _semaphore;
+        private readonly byte[] _iccProfileBytes;
         public int SlotsAvailable => _semaphore.CurrentCount;
 
         #region Constants
@@ -59,6 +60,7 @@ namespace PdfAForge.Services
         {
             var max = AppSettings.Current.MaxConcurrentConversions;
             _semaphore = new SemaphoreSlim(max, max);
+            _iccProfileBytes = File.ReadAllBytes(AppSettings.Current.IccProfilePath);
         }
 
         /// <summary>
@@ -92,6 +94,7 @@ namespace PdfAForge.Services
                 result.Message = $"Service busy: no conversion slot available after {settings.QueueTimeoutSeconds}s.";
                 ConversionLogger.Current.Warn(correlationId,
                     $"QUEUE TIMEOUT | file={fileName} | waited {settings.QueueTimeoutSeconds}s");
+                ConversionMetrics.Current.RecordBusy();
                 return (result, null);
             }
 
@@ -112,6 +115,7 @@ namespace PdfAForge.Services
                 ConversionLogger.Current.ConversionSuccess(
                     correlationId, fileName,
                     result.InputSizeKb, result.OutputSizeKb, result.DurationMs);
+                ConversionMetrics.Current.RecordSuccess(result.DurationMs);
 
                 return (result, outputBytes);
             }
@@ -124,6 +128,7 @@ namespace PdfAForge.Services
 
                 ConversionLogger.Current.ConversionError(
                     correlationId, fileName, ex.Message, ex);
+                ConversionMetrics.Current.RecordFailure(sw.ElapsedMilliseconds);
 
                 return (result, null);
             }
@@ -137,8 +142,6 @@ namespace PdfAForge.Services
 
         private byte[] Convert(byte[] inputPdf, string fileName, string correlationId)
         {
-            var iccPath = AppSettings.Current.IccProfilePath;
-
             PdfReader reader;
             try
             {
@@ -186,7 +189,7 @@ namespace PdfAForge.Services
                 var writer = new PdfWriter(outputStream);
 
                 PdfOutputIntent outputIntent;
-                using (var iccStream = new FileStream(iccPath, FileMode.Open, FileAccess.Read))
+                using (var iccStream = new MemoryStream(_iccProfileBytes))
                 {
                     outputIntent = new PdfOutputIntent(
                         "Custom", "",
