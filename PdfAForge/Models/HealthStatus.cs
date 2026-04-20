@@ -14,5 +14,11 @@
         public int MaxConcurrentConversions { get; set; }
         public int QueueTimeoutSeconds { get; set; }
         public int ConversionSlotsAvailable { get; set; }
+        public long TotalRequests { get; set; }
+        public long TotalSuccesses { get; set; }
+        public long TotalFailures { get; set; }
+        public long TotalBusy { get; set; }
+        public double AverageDurationMs { get; set; }
+        public string UptimeSince { get; set; }
     }
 }

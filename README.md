@@ -10,6 +10,9 @@ Built for enterprise environments requiring long-term archiving compliance (Fren
 
 - PDF to PDF/A-3B conversion via HTTP
 - **Concurrency queue** — simultaneous requests wait for a free slot; no requests dropped under burst load
+- **ICC profile cached at startup** — loaded once into memory, never read from disk during conversions
+- **Content-Length pre-check** — oversized requests rejected before body is buffered
+- **Live conversion metrics** — total requests, successes, failures, busy count and average duration exposed on the health endpoint
 - Pass-through for already PDF/A-3 compliant files (XMP metadata detection)
 - Automatic pre-conversion fixes:
   - Annotation F flags (Print=1, Invisible/Hidden/NoView/ToggleNoView=0)
@@ -103,7 +106,13 @@ Returns service health status.
   "logRetentionDays": 30,
   "maxConcurrentConversions": 4,
   "queueTimeoutSeconds": 120,
-  "conversionSlotsAvailable": 4
+  "conversionSlotsAvailable": 3,
+  "totalRequests": 142,
+  "totalSuccesses": 139,
+  "totalFailures": 2,
+  "totalBusy": 1,
+  "averageDurationMs": 312.4,
+  "uptimeSince": "2026-04-20 08:00:00"
 }
 ```
 
@@ -158,7 +167,8 @@ PdfAForge/
 ├── Resources/
 │   └── sRGB_CS_profile.icm     — mandatory ICC color profile
 ├── Services/
-│   └── PdfConverterService.cs  — PDF/A-3B conversion engine
+│   ├── PdfConverterService.cs  — PDF/A-3B conversion engine
+│   └── ConversionMetrics.cs    — in-memory request counters (thread-safe)
 ├── Validation/
 │   └── PdfValidator.cs         — magic bytes + file size validation
 ├── Global.asax                 — startup validation + logging
