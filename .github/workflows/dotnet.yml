@@ -64,6 +64,16 @@ jobs:
           $projectFile = Join-Path $projectDir "PdfAForge.csproj"
           $workspaceFullPath = [System.IO.Path]::GetFullPath($workspace)
           $projectDirFullPath = [System.IO.Path]::GetFullPath($projectDir)
+          $directorySeparator = [System.IO.Path]::DirectorySeparatorChar
+
+          function Test-IsPathWithinRoot {
+            param(
+              [string]$Path,
+              [string]$Root
+            )
+
+            return $Path.StartsWith($Root + $directorySeparator) -or $Path -eq $Root
+          }
 
           [xml]$csproj = Get-Content -Path $projectFile
           $missingContentItems = @()
@@ -80,7 +90,7 @@ jobs:
 
             $normalizedInclude = $include.Replace('/', [System.IO.Path]::DirectorySeparatorChar).Replace('\', [System.IO.Path]::DirectorySeparatorChar)
             $projectPath = [System.IO.Path]::GetFullPath((Join-Path $projectDir $normalizedInclude))
-            if (-not ($projectPath.StartsWith($projectDirFullPath + [System.IO.Path]::DirectorySeparatorChar) -or $projectPath -eq $projectDirFullPath)) {
+            if (-not (Test-IsPathWithinRoot -Path $projectPath -Root $projectDirFullPath)) {
               throw "Invalid content include path outside project directory: $include"
             }
 
@@ -89,7 +99,7 @@ jobs:
             }
 
             $rootPath = [System.IO.Path]::GetFullPath((Join-Path $workspace $normalizedInclude))
-            if (-not ($rootPath.StartsWith($workspaceFullPath + [System.IO.Path]::DirectorySeparatorChar) -or $rootPath -eq $workspaceFullPath)) {
+            if (-not (Test-IsPathWithinRoot -Path $rootPath -Root $workspaceFullPath)) {
               throw "Invalid content include path outside workspace: $include"
             }
 
