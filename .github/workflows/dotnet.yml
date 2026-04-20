@@ -148,9 +148,8 @@ jobs:
             throw "Publish output directory not found: $publishDir"
           }
 
-          $publishItems = Get-ChildItem -Path $publishDir -Force
-          if ($publishItems.Count -eq 0) {
-            throw "Publish output directory is empty: $publishDir"
+          if (-not (Test-Path -Path (Join-Path $publishDir '*') -PathType Any)) {
+            throw "Publish output directory contains no entries: $publishDir"
           }
 
           Compress-Archive -Path (Join-Path $publishDir '*') `
