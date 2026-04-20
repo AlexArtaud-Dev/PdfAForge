@@ -76,17 +76,17 @@ jobs:
               continue
             }
 
-            $normalizedInclude = $include -replace '/', [System.IO.Path]::DirectorySeparatorChar
+            $normalizedInclude = $include -replace '[\\/]+', [System.IO.Path]::DirectorySeparatorChar
             $projectPath = Join-Path $projectDir $normalizedInclude
 
-            if (Test-Path $projectPath) {
+            if (Test-Path -LiteralPath $projectPath) {
               continue
             }
 
             $rootPath = Join-Path $workspace $normalizedInclude
-            if (Test-Path $rootPath) {
+            if (Test-Path -LiteralPath $rootPath) {
               $projectItemDir = Split-Path -Parent $projectPath
-              if (-not [string]::IsNullOrWhiteSpace($projectItemDir) -and -not (Test-Path $projectItemDir)) {
+              if ($projectItemDir -and -not (Test-Path -LiteralPath $projectItemDir)) {
                 New-Item -ItemType Directory -Path $projectItemDir -Force | Out-Null
               }
 
