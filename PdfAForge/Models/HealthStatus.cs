@@ -11,5 +11,8 @@
         public long LogDiskFreeMb { get; set; }
         public int MaxFileSizeMb { get; set; }
         public int LogRetentionDays { get; set; }
+        public int MaxConcurrentConversions { get; set; }
+        public int QueueTimeoutSeconds { get; set; }
+        public int ConversionSlotsAvailable { get; set; }
     }
 }

@@ -2,6 +2,8 @@
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
+using System.Threading;
+using System.Threading.Tasks;
 using iText.Kernel.Pdf;
 using iText.Kernel.Pdf.Annot;
 using iText.Pdfa;
@@ -19,6 +21,9 @@ namespace PdfAForge.Services
     {
         private static readonly PdfConverterService _instance = new PdfConverterService();
         public static PdfConverterService Current => _instance;
+
+        private readonly SemaphoreSlim _semaphore;
+        public int SlotsAvailable => _semaphore.CurrentCount;
 
         #region Constants
 
@@ -50,19 +55,18 @@ namespace PdfAForge.Services
 
         #endregion
 
-        private PdfConverterService() { }
+        private PdfConverterService()
+        {
+            var max = AppSettings.Current.MaxConcurrentConversions;
+            _semaphore = new SemaphoreSlim(max, max);
+        }
 
         /// <summary>
         /// Converts a PDF byte array to PDF/A-3B.
+        /// Waits up to <see cref="AppSettings.QueueTimeoutSeconds"/> for a free conversion slot.
+        /// Returns <c>IsBusy=true</c> if no slot became available in time.
         /// </summary>
-        /// <param name="inputPdf">Raw bytes of the source PDF.</param>
-        /// <param name="fileName">Original filename, used for logging.</param>
-        /// <param name="correlationId">Request correlation ID for end-to-end tracing.</param>
-        /// <returns>
-        /// A tuple of the <see cref="ConversionResult"/> metadata and the converted bytes.
-        /// <c>outputBytes</c> is <c>null</c> on failure.
-        /// </returns>
-        public (ConversionResult result, byte[] outputBytes) ConvertToPdfA3B(
+        public async Task<(ConversionResult result, byte[] outputBytes)> ConvertToPdfA3B(
             byte[] inputPdf, string fileName, string correlationId)
         {
             var result = new ConversionResult
@@ -72,10 +76,28 @@ namespace PdfAForge.Services
                 InputSizeKb = inputPdf.Length / 1024
             };
 
-            var sw = Stopwatch.StartNew();
+            var settings = AppSettings.Current;
+            var slotsAvailable = _semaphore.CurrentCount;
 
+            if (slotsAvailable == 0)
+                ConversionLogger.Current.Info(correlationId,
+                    $"QUEUED | file={fileName} | all {settings.MaxConcurrentConversions} slot(s) busy, waiting up to {settings.QueueTimeoutSeconds}s");
+
+            var acquired = await _semaphore.WaitAsync(
+                TimeSpan.FromSeconds(settings.QueueTimeoutSeconds));
+
+            if (!acquired)
+            {
+                result.IsBusy = true;
+                result.Message = $"Service busy: no conversion slot available after {settings.QueueTimeoutSeconds}s.";
+                ConversionLogger.Current.Warn(correlationId,
+                    $"QUEUE TIMEOUT | file={fileName} | waited {settings.QueueTimeoutSeconds}s");
+                return (result, null);
+            }
+
+            var sw = Stopwatch.StartNew();
             ConversionLogger.Current.Info(correlationId,
-                $"START conversion | file={fileName} | size={result.InputSizeKb}kb");
+                $"START conversion | file={fileName} | size={result.InputSizeKb}kb | slots_remaining={_semaphore.CurrentCount}/{settings.MaxConcurrentConversions}");
 
             try
             {
@@ -104,6 +126,10 @@ namespace PdfAForge.Services
                     correlationId, fileName, ex.Message, ex);
 
                 return (result, null);
+            }
+            finally
+            {
+                _semaphore.Release();
             }
         }
 

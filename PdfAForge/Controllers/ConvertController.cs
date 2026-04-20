@@ -97,8 +97,16 @@ namespace PdfAForge.Controllers
             }
 
             // --- Convert ---
-            var (result, outputBytes) = PdfConverterService.Current
+            var (result, outputBytes) = await PdfConverterService.Current
                 .ConvertToPdfA3B(inputBytes, fileName, correlationId);
+
+            if (result.IsBusy)
+            {
+                var busy = ErrorResponse(HttpStatusCode.ServiceUnavailable,
+                    result.Message, correlationId);
+                busy.Headers.Add("Retry-After", "10");
+                return busy;
+            }
 
             if (!result.Success)
                 return ErrorResponse(HttpStatusCode.InternalServerError,
@@ -158,7 +166,10 @@ namespace PdfAForge.Controllers
                 LogPathOk = Directory.Exists(settings.LogPath),
                 LogDiskFreeMb = diskFreeMb,
                 MaxFileSizeMb = settings.MaxFileSizeMb,
-                LogRetentionDays = settings.LogRetentionDays
+                LogRetentionDays = settings.LogRetentionDays,
+                MaxConcurrentConversions = settings.MaxConcurrentConversions,
+                QueueTimeoutSeconds = settings.QueueTimeoutSeconds,
+                ConversionSlotsAvailable = PdfConverterService.Current.SlotsAvailable
             };
 
             if (!status.IccProfileOk || !status.LogPathOk)
