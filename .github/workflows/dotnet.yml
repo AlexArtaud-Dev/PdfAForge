@@ -7,8 +7,8 @@ on:
     branches: [ main ]
 
 jobs:
-  build:
-    name: Build & Validate
+  build-and-test:
+    name: Build & Test
     runs-on: windows-latest
 
     steps:
@@ -30,10 +30,66 @@ jobs:
       - name: Run tests
         shell: pwsh
         run: |
-          $dlls = Get-ChildItem -Recurse -Filter "*Tests*.dll" |
-            Where-Object { $_.FullName -match "\\bin\\Release\\" }
-          if ($dlls.Count -eq 0) {
-            Write-Host "No test assemblies found — skipping."
-            exit 0
-          }
-          vstest.console.exe $dlls
+          $vswhere = "${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer\vswhere.exe"
+          $vstest  = & $vswhere -latest -products * -find **\vstest.console.exe |
+                     Select-Object -First 1
+          & $vstest PdfAForge.Tests\bin\Release\PdfAForge.Tests.dll /logger:trx
+
+  release:
+    name: Release
+    runs-on: windows-latest
+    needs: build-and-test
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup MSBuild
+        uses: microsoft/setup-msbuild@v2
+
+      - name: Setup NuGet
+        uses: NuGet/setup-nuget@v2
+
+      - name: Restore NuGet packages
+        run: nuget restore PdfAForge.sln
+
+      - name: Publish to file system
+        shell: pwsh
+        run: |
+          $out = "${{ github.workspace }}\publish"
+          msbuild PdfAForge\PdfAForge.csproj /p:Configuration=Release /p:Platform="Any CPU" `
+            /p:WebPublishMethod=FileSystem /p:PublishUrl="$out" `
+            /p:DeployOnBuild=true /p:DeleteExistingFiles=true `
+            /nologo /v:minimal
+
+      - name: Read version from Web.config
+        id: version
+        shell: pwsh
+        run: |
+          $v = ([xml](Get-Content PdfAForge\Web.config)).configuration.appSettings.add |
+               Where-Object { $_.key -eq 'ServiceVersion' } |
+               Select-Object -ExpandProperty value
+          echo "value=$v" >> $env:GITHUB_OUTPUT
+
+      - name: Package
+        shell: pwsh
+        run: |
+          Compress-Archive -Path publish\* `
+            -DestinationPath PdfAForge-v${{ steps.version.outputs.value }}.zip
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v${{ steps.version.outputs.value }}-${{ github.run_number }}
+          name: PdfAForge v${{ steps.version.outputs.value }} (build ${{ github.run_number }})
+          body: |
+            IIS deployment package for Windows Server (.NET Framework 4.8).
+
+            **Install**
+            1. Extract the ZIP into your IIS site root (e.g. `C:\inetpub\wwwroot\PdfAForge`)
+            2. Edit `Web.config`: set `LogPath` and verify `IccProfilePath`
+            3. Ensure the App Pool targets **.NET CLR v4.0**, integrated pipeline
+          files: PdfAForge-v${{ steps.version.outputs.value }}.zip

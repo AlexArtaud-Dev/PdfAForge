@@ -5,6 +5,8 @@ VisualStudioVersion = 17.14.37111.16 d17.14
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "PdfAForge", "PdfAForge\PdfAForge.csproj", "{69D40139-C22C-4A9F-8D2E-F2FC03D6BFD0}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "PdfAForge.Tests", "PdfAForge.Tests\PdfAForge.Tests.csproj", "{8F5E2A3B-1C4D-4E6F-9A7B-2D3E4F5A6B7C}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -15,6 +17,10 @@ Global
 		{69D40139-C22C-4A9F-8D2E-F2FC03D6BFD0}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{69D40139-C22C-4A9F-8D2E-F2FC03D6BFD0}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{69D40139-C22C-4A9F-8D2E-F2FC03D6BFD0}.Release|Any CPU.Build.0 = Release|Any CPU
+		{8F5E2A3B-1C4D-4E6F-9A7B-2D3E4F5A6B7C}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{8F5E2A3B-1C4D-4E6F-9A7B-2D3E4F5A6B7C}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{8F5E2A3B-1C4D-4E6F-9A7B-2D3E4F5A6B7C}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{8F5E2A3B-1C4D-4E6F-9A7B-2D3E4F5A6B7C}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
