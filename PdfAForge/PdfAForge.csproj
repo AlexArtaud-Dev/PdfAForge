@@ -191,6 +191,7 @@
     <Compile Include="Models\ConversionResult.cs" />
     <Compile Include="Models\HealthStatus.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
+    <Compile Include="Services\ConversionMetrics.cs" />
     <Compile Include="Services\PdfConverterService.cs" />
     <Compile Include="Validation\PdfValidator.cs" />
   </ItemGroup>
