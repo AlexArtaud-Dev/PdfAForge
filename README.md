@@ -9,6 +9,7 @@ Built for enterprise environments requiring long-term archiving compliance (Fren
 ## Features
 
 - PDF to PDF/A-3B conversion via HTTP
+- **Concurrency queue** — simultaneous requests wait for a free slot; no requests dropped under burst load
 - Pass-through for already PDF/A-3 compliant files (XMP metadata detection)
 - Automatic pre-conversion fixes:
   - Annotation F flags (Print=1, Invisible/Hidden/NoView/ToggleNoView=0)
@@ -78,6 +79,8 @@ HTTP 400  Missing or invalid pdf_file part
 HTTP 413  File exceeds MaxFileSizeMb
 HTTP 415  File is not a valid PDF (magic bytes check)
 HTTP 500  Conversion failed (message included in JSON body)
+HTTP 503  All conversion slots busy and QueueTimeoutSeconds elapsed
+          Headers: Retry-After: 10
 ```
 
 ---
@@ -97,11 +100,15 @@ Returns service health status.
   "logPathOk": true,
   "logDiskFreeMb": 45000,
   "maxFileSizeMb": 50,
-  "logRetentionDays": 30
+  "logRetentionDays": 30,
+  "maxConcurrentConversions": 4,
+  "queueTimeoutSeconds": 120,
+  "conversionSlotsAvailable": 4
 }
 ```
 
-`status` can be `ok` or `degraded` (if ICC profile or log path is unavailable).
+`status` can be `ok` or `degraded` (if ICC profile or log path is unavailable).  
+`conversionSlotsAvailable` reflects live semaphore state — useful for monitoring.
 
 ---
 
@@ -109,14 +116,27 @@ Returns service health status.
 
 ```xml
 <appSettings>
-  <add key="LogPath"          value="C:\Logs\PdfAForge\" />
-  <add key="LogRetentionDays" value="30" />
-  <add key="MaxFileSizeMb"    value="50" />
-  <add key="IccProfilePath"   value="Resources\sRGB_CS_profile.icm" />
-  <add key="ServiceVersion"   value="1.0.0" />
-  <add key="ServiceName"      value="PdfAForge" />
+  <add key="LogPath"                   value="C:\Logs\PdfAForge\" />
+  <add key="LogRetentionDays"          value="30" />
+  <add key="MaxFileSizeMb"             value="50" />
+  <add key="IccProfilePath"            value="Resources\sRGB_CS_profile.icm" />
+  <add key="MaxConcurrentConversions"  value="4" />   <!-- optional, default: CPU count, range 1–64 -->
+  <add key="QueueTimeoutSeconds"       value="120" /> <!-- optional, default: 120, range 10–600 -->
+  <add key="ServiceVersion"            value="1.0.0" />
+  <add key="ServiceName"               value="PdfAForge" />
 </appSettings>
 ```
+
+| Key | Required | Default | Description |
+|---|---|---|---|
+| `LogPath` | Yes | — | Directory for daily rotating log files |
+| `LogRetentionDays` | Yes | — | Days to keep log files (1–365) |
+| `MaxFileSizeMb` | Yes | — | Max accepted PDF size (1–500) |
+| `IccProfilePath` | Yes | — | Path to sRGB ICC profile (absolute or relative to app root) |
+| `MaxConcurrentConversions` | No | CPU count | Max simultaneous iText conversions (1–64) |
+| `QueueTimeoutSeconds` | No | 120 | Seconds a queued request waits before receiving 503 (10–600) |
+| `ServiceVersion` | No | `1.0.0` | Reported in health endpoint |
+| `ServiceName` | No | `PdfAForge` | Reported in health endpoint and PDF metadata |
 
 ---
 

@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Configuration;
 using System.IO;
+using System.Threading;
 
 namespace PdfAForge.Config
 {
@@ -26,6 +27,10 @@ namespace PdfAForge.Config
         // --- iText ---
         public string IccProfilePath { get; private set; }
 
+        // --- Concurrency ---
+        public int MaxConcurrentConversions { get; private set; }
+        public int QueueTimeoutSeconds { get; private set; }
+
         // --- Service metadata ---
         public string ServiceVersion { get; private set; }
         public string ServiceName { get; private set; }
@@ -36,6 +41,8 @@ namespace PdfAForge.Config
             LogRetentionDays = RequireInt("LogRetentionDays", 1, 365);
             MaxFileSizeMb = RequireInt("MaxFileSizeMb", 1, 500);
             IccProfilePath = ResolveRelativePath(Require("IccProfilePath"));
+            MaxConcurrentConversions = GetInt("MaxConcurrentConversions", Environment.ProcessorCount, 1, 64);
+            QueueTimeoutSeconds = GetInt("QueueTimeoutSeconds", 120, 10, 600);
             ServiceVersion = Get("ServiceVersion", "1.0.0");
             ServiceName = Get("ServiceName", "PdfAForge");
         }
@@ -81,6 +88,16 @@ namespace PdfAForge.Config
         {
             var val = ConfigurationManager.AppSettings[key];
             return string.IsNullOrWhiteSpace(val) ? defaultValue : val.Trim();
+        }
+
+        private static int GetInt(string key, int defaultValue, int min, int max)
+        {
+            var raw = ConfigurationManager.AppSettings[key];
+            if (string.IsNullOrWhiteSpace(raw)) return defaultValue;
+            if (!int.TryParse(raw.Trim(), out int val) || val < min || val > max)
+                throw new ConfigurationErrorsException(
+                    $"appSetting '{key}' must be an integer between {min} and {max}. Got: '{raw}'");
+            return val;
         }
 
         private static string ResolveRelativePath(string path)
