@@ -143,7 +143,17 @@ jobs:
       - name: Package
         shell: pwsh
         run: |
-          Compress-Archive -Path publish\* `
+          $publishDir = Join-Path "${{ github.workspace }}" "publish"
+          if (-not (Test-Path -LiteralPath $publishDir)) {
+            throw "Publish output directory not found: $publishDir"
+          }
+
+          $publishItems = Get-ChildItem -Path $publishDir -Force
+          if ($publishItems.Count -eq 0) {
+            throw "Publish output directory is empty: $publishDir"
+          }
+
+          Compress-Archive -Path (Join-Path $publishDir '*') `
             -DestinationPath PdfAForge-v${{ steps.version.outputs.value }}.zip
 
       - name: Create GitHub Release
