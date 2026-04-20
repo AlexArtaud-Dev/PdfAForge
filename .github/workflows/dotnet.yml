@@ -59,15 +59,46 @@ jobs:
       - name: Prepare publish inputs
         shell: pwsh
         run: |
-          $rootGitIgnore = Join-Path "${{ github.workspace }}" ".gitignore"
-          $projectGitIgnore = Join-Path (Join-Path "${{ github.workspace }}" "PdfAForge") ".gitignore"
+          $workspace = "${{ github.workspace }}"
+          $projectDir = Join-Path $workspace "PdfAForge"
+          $projectFile = Join-Path $projectDir "PdfAForge.csproj"
 
-          if (-not (Test-Path $projectGitIgnore)) {
-            if (-not (Test-Path $rootGitIgnore)) {
-              throw "Missing root .gitignore required by PdfAForge.csproj publish content items."
+          [xml]$csproj = Get-Content -Path $projectFile
+          $missingContentItems = @()
+
+          foreach ($item in $csproj.Project.ItemGroup.Content) {
+            $include = $item.Include
+            if ([string]::IsNullOrWhiteSpace($include)) {
+              continue
             }
 
-            Copy-Item -Path $rootGitIgnore -Destination $projectGitIgnore
+            if ([System.IO.Path]::IsPathRooted($include)) {
+              continue
+            }
+
+            $normalizedInclude = $include -replace '/', [System.IO.Path]::DirectorySeparatorChar
+            $projectPath = Join-Path $projectDir $normalizedInclude
+
+            if (Test-Path $projectPath) {
+              continue
+            }
+
+            $rootPath = Join-Path $workspace $normalizedInclude
+            if (Test-Path $rootPath) {
+              $projectItemDir = Split-Path -Parent $projectPath
+              if (-not [string]::IsNullOrWhiteSpace($projectItemDir) -and -not (Test-Path $projectItemDir)) {
+                New-Item -ItemType Directory -Path $projectItemDir -Force | Out-Null
+              }
+
+              Copy-Item -Path $rootPath -Destination $projectPath -Force
+            } else {
+              $missingContentItems += $include
+            }
+          }
+
+          if ($missingContentItems.Count -gt 0) {
+            $missingList = $missingContentItems -join ", "
+            throw "Missing required publish content files referenced by PdfAForge.csproj: $missingList"
           }
 
       - name: Publish to file system
