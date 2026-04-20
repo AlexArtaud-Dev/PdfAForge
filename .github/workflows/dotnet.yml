@@ -28,4 +28,9 @@ jobs:
         run: msbuild PdfAForge.sln /p:Configuration=Release /p:Platform="Any CPU" /m /nologo /v:minimal
 
       - name: Run tests
-        run: vstest.console.exe PdfAForge.Tests\bin\Release\PdfAForge.Tests.dll /logger:trx
+        shell: pwsh
+        run: |
+          $vswhere = "${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer\vswhere.exe"
+          $vstest  = & $vswhere -latest -products * -find **\vstest.console.exe |
+                     Select-Object -First 1
+          & $vstest PdfAForge.Tests\bin\Release\PdfAForge.Tests.dll /logger:trx
