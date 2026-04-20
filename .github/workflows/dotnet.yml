@@ -72,7 +72,8 @@ jobs:
               [string]$Root
             )
 
-            return $Path.StartsWith($Root + $directorySeparator) -or $Path -eq $Root
+            return $Path.StartsWith($Root + $directorySeparator, [StringComparison]::OrdinalIgnoreCase) -or
+                   $Path.Equals($Root, [StringComparison]::OrdinalIgnoreCase)
           }
 
           [xml]$csproj = Get-Content -Path $projectFile
@@ -88,7 +89,7 @@ jobs:
               continue
             }
 
-            $normalizedInclude = $include.Replace('/', [System.IO.Path]::DirectorySeparatorChar).Replace('\', [System.IO.Path]::DirectorySeparatorChar)
+            $normalizedInclude = $include -replace '[/\\]', [System.IO.Path]::DirectorySeparatorChar
             $projectPath = [System.IO.Path]::GetFullPath((Join-Path $projectDir $normalizedInclude))
             if (-not (Test-IsPathWithinRoot -Path $projectPath -Root $projectDirFullPath)) {
               throw "Invalid content include path outside project directory: $include"
